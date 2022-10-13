@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
@@ -13,12 +14,13 @@ import javax.inject.Inject
 
 @HiltAndroidApp
 class MainViewModel @Inject constructor(
-    private val savedStateHandle: SavedStateHandle
-): ViewModel() {
+    private val savedStateHandle: SavedStateHandle,
+    val player: Player
+) : ViewModel() {
 
     private val videoUris = savedStateHandle.getStateFlow("videoUris", emptyList<Uri>())
 
-    val videoItems = videoUris.map { uris->
+    val videoItems = videoUris.map { uris ->
         uris.map { uri ->
             VideoItem(
                 contentUri = uri,
@@ -27,4 +29,20 @@ class MainViewModel @Inject constructor(
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addVideoUri(uri: Uri) {
+        savedStateHandle["videoUris"] = videoUris.value + uri
+        player.addMediaItem(MediaItem.fromUri(uri))
+    }
+
+    fun playVideo(uri: Uri) {
+        player.setMediaItem(
+            videoItems.value.find { it.contentUri == uri }?.mediaItem ?: return
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        player.release()
+    }
 }
